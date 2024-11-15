@@ -1,10 +1,13 @@
 # Copyright (C) 2012-2024 Zammad Foundation, https://zammad-foundation.org/
 
 class Sessions::Store::Redis
-  SESSIONS_KEY = 'sessions'.freeze
-  MESSAGES_KEY = 'messages'.freeze
-  SPOOL_KEY = 'spool'.freeze
-  NODES_KEY = 'nodes'.freeze
+  PREFIX = ENV['REDIS_MULTITENANCY_PREFIX']
+  PREFIX_WITH_SEPARATOR = PREFIX ? "#{PREFIX}:" : ''
+
+  SESSIONS_KEY = "#{PREFIX_WITH_SEPARATOR}sessions".freeze
+  MESSAGES_KEY = "#{PREFIX_WITH_SEPARATOR}messages".freeze
+  SPOOL_KEY = "#{PREFIX_WITH_SEPARATOR}spool".freeze
+  NODES_KEY = "#{PREFIX_WITH_SEPARATOR}nodes".freeze
 
   def initialize
     @redis = Redis.new(driver: :hiredis)

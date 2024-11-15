@@ -12,13 +12,21 @@ module Redlock
   class Client
     def initialize(server)
       @id = SecureRandom.uuid
+      @prefix = ENV['REDIS_MULTITENANCY_PREFIX']
       @redis = Redis.new(driver: :hiredis, url: server)
     end
 
+    private
+
+    def prefixed_key(resource)
+      @prefix ? "#{@prefix}:#{resource}" : resource
+    end
+
+    public
+
     def lock(resource, ttl, options = {}, &block)
       return extend_ttl(options[:extend]) if options[:extend]
-      return if !@redis.set(resource, @id, nx: true, px: ttl)
-
+      return if !@redis.set(prefixed_key(resource), @id, nx: true, px: ttl)
       if block
         begin
           yield block
@@ -31,28 +39,24 @@ module Redlock
     end
 
     def unlock(lock_info)
-      value = @redis.get(lock_info[:resource])
+      value = @redis.get(prefixed_key(lock_info[:resource]))
       return 0 if value != lock_info[:value]
-
-      @redis.del(lock_info[:resource])
+      @redis.del(prefixed_key(lock_info[:resource]))
     end
 
     def locked?(resource)
-      @redis.exists?(resource)
+      @redis.exists?(prefixed_key(resource))
     end
 
     private
 
     def extend_ttl(lock_info)
       return 0 if !locked?(lock_info[:resource])
-
-      value = @redis.get(lock_info[:resource])
+      value = @redis.get(prefixed_key(lock_info[:resource]))
       return 0 if value != lock_info[:value]
-
-      ttl = @redis.pttl(lock_info[:resource])
+      ttl = @redis.pttl(prefixed_key(lock_info[:resource]))
       return if ttl <= 0 || ttl > lock_info[:validity]
-
-      @redis.pexpire(lock_info[:resource], lock_info[:validity])
+      @redis.pexpire(prefixed_key(lock_info[:resource], lock_info[:validity]))
     end
   end
 end
